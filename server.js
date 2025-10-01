@@ -248,16 +248,93 @@ bot.on("message", async (msg) => {
         depositMethod: "crypto"
       });
 
-      bot.sendMessage(chatId,
-        `✅ ${res.data.message}\n\n📌 Send your payment to:\nBTC: \`1ABCDxyzbtcwallet\`\nUSDT (TRC20): \`TX123usdtwallet\`\n\nAfter payment, send screenshot to @FLTSupport for verification.`,
-        { parse_mode: "Markdown" }
-      );
+      bot.sendMessage(
+  chatId,
+  `✅ ${res.data.message}\n\n📌 Send your payment to:\n` +
+  `BTC: \`bc1qpwjgneqczaspsqmpfyr2d48wmmnvr6qn3fmm56\`\n` +
+  `ETH: \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
+  `USDT (TRC20): \`TGQginp7dQg3DsHCdQJjo7xeqzbsZ5uK5D\`\n` +
+  `USDT (BEP20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
+  `USDT (ERC20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n\n` +
+  `After payment, send screenshot to @FLTSupport for verification.`,
+  { parse_mode: "Markdown" }
+);
+
 
       delete sessions[chatId].selectedTier;
     } catch (error) {
       bot.sendMessage(chatId, "❌ Deposit failed: " + (error.response?.data?.message || "Server error"));
     }
   }
+
+
+  //
+// WITHDRAWAL
+//
+else if (text === "💸 Withdraw") {
+  const session = sessions[chatId];
+  if (!session?.email) {
+    bot.sendMessage(chatId, "❌ You must login first using 🔐 Login.");
+    return;
+  }
+
+  try {
+    // Get balance first
+    const res = await axios.get(`${API_BASE}/getBalance?email=${session.email}`);
+    const balance = res.data.balance || 0;
+
+    if (balance <= 0) {
+      return bot.sendMessage(chatId, "❌ You have no funds available for withdrawal.");
+    }
+
+    // Save state
+    sessions[chatId].step = "withdraw_wallet";
+    sessions[chatId].withdrawBalance = balance;
+
+    bot.sendMessage(
+      chatId,
+      `💸 Your available balance: *₦${balance}*\n\nPlease enter your crypto wallet address where funds will be sent:`,
+      { parse_mode: "Markdown" }
+    );
+  } catch (error) {
+    bot.sendMessage(chatId, "❌ Failed to fetch balance for withdrawal.");
+  }
+}
+
+//
+// HANDLE WALLET ADDRESS INPUT
+//
+else if (sessions[chatId]?.step === "withdraw_wallet") {
+  const walletAddress = text;
+  const email = sessions[chatId].email;
+  const amount = sessions[chatId].withdrawBalance;
+
+  try {
+    // Call your main website withdrawal route
+    const res = await axios.post(`${API_BASE}/withdraw`, {
+      email,
+      wallet: walletAddress,
+      amount
+    });
+
+    bot.sendMessage(
+      chatId,
+      `✅ Withdrawal request submitted!\n\n📌 Amount: *₦${amount}*\n📌 Wallet: \`${walletAddress}\`\n\nPlease contact @FLTSupport to finalize your withdrawal.`,
+      { parse_mode: "Markdown" }
+    );
+
+    // Clear withdraw step
+    delete sessions[chatId].step;
+    delete sessions[chatId].withdrawBalance;
+
+  } catch (error) {
+    bot.sendMessage(
+      chatId,
+      "❌ Withdrawal failed: " + (error.response?.data?.message || "Server error")
+    );
+  }
+}
+
 
   //
   // LOGOUT
@@ -552,6 +629,74 @@ app.listen(PORT, "0.0.0.0", () => {
 //       bot.sendMessage(chatId, "❌ Deposit failed: " + (error.response?.data?.message || "Server error"));
 //     }
 //   }
+
+//   //
+// // WITHDRAWAL
+// //
+// else if (text === "💸 Withdraw") {
+//   const session = sessions[chatId];
+//   if (!session?.email) {
+//     bot.sendMessage(chatId, "❌ You must login first using 🔐 Login.");
+//     return;
+//   }
+
+//   try {
+//     // Get balance first
+//     const res = await axios.get(`${API_BASE}/getBalance?email=${session.email}`);
+//     const balance = res.data.balance || 0;
+
+//     if (balance <= 0) {
+//       return bot.sendMessage(chatId, "❌ You have no funds available for withdrawal.");
+//     }
+
+//     // Save state
+//     sessions[chatId].step = "withdraw_wallet";
+//     sessions[chatId].withdrawBalance = balance;
+
+//     bot.sendMessage(
+//       chatId,
+//       `💸 Your available balance: *₦${balance}*\n\nPlease enter your crypto wallet address where funds will be sent:`,
+//       { parse_mode: "Markdown" }
+//     );
+//   } catch (error) {
+//     bot.sendMessage(chatId, "❌ Failed to fetch balance for withdrawal.");
+//   }
+// }
+
+// //
+// // HANDLE WALLET ADDRESS INPUT
+// //
+// else if (sessions[chatId]?.step === "withdraw_wallet") {
+//   const walletAddress = text;
+//   const email = sessions[chatId].email;
+//   const amount = sessions[chatId].withdrawBalance;
+
+//   try {
+//     // Call your main website withdrawal route
+//     const res = await axios.post(`${API_BASE}/withdraw`, {
+//       email,
+//       wallet: walletAddress,
+//       amount
+//     });
+
+//     bot.sendMessage(
+//       chatId,
+//       `✅ Withdrawal request submitted!\n\n📌 Amount: *₦${amount}*\n📌 Wallet: \`${walletAddress}\`\n\nPlease contact @FLTSupport to finalize your withdrawal.`,
+//       { parse_mode: "Markdown" }
+//     );
+
+//     // Clear withdraw step
+//     delete sessions[chatId].step;
+//     delete sessions[chatId].withdrawBalance;
+
+//   } catch (error) {
+//     bot.sendMessage(
+//       chatId,
+//       "❌ Withdrawal failed: " + (error.response?.data?.message || "Server error")
+//     );
+//   }
+// }
+
 
 //   //
 //   // LOGOUT

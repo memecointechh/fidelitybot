@@ -289,16 +289,31 @@ else if (text === "💸 Withdraw") {
 
 
   //
-  // LOGOUT
-  //
-  else if (text === "🚪 Logout") {
-    if (sessions[chatId]?.email) {
-      delete sessions[chatId];
-      bot.sendMessage(chatId, "✅ You have been logged out successfully.");
-    } else {
-      bot.sendMessage(chatId, "ℹ️ You are not logged in.");
-    }
+// LOGOUT
+//
+else if (text === "🚪 Logout") {
+  if (sessions[chatId]?.email) {
+    delete sessions[chatId];
+    bot.sendMessage(chatId, "✅ You have been logged out successfully.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔐 Sign In", callback_data: "signin" }],
+          [{ text: "📝 Sign Up", callback_data: "signup" }]
+        ]
+      }
+    });
+  } else {
+    bot.sendMessage(chatId, "ℹ️ You are not logged in.", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔐 Sign In", callback_data: "signin" }],
+          [{ text: "📝 Sign Up", callback_data: "signup" }]
+        ]
+      }
+    });
   }
+}
+
 
   //
   // UNKNOWN COMMANDS

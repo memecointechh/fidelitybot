@@ -1,26 +1,41 @@
 require("dotenv").config();
-const API_BASE = process.env.API_BASE;
-const BOT_TOKEN = process.env.BOT_TOKEN;
+const express = require("express");
+const bodyParser = require("body-parser");
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 
-// Replace with your bot token from BotFather
-// const token = "8340260978:AAGOIsr3X5Pm0eoCfoR383YDF74Pkpc3NFo";
+const API_BASE = process.env.API_BASE;
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
-
-// The plan_id (or name) you created in DB for Telegram 9-day investments
+// Plan name in your DB
 const TELEGRAM_PLAN_NAME = "Telegram-9-Day-Plan";
 
-// const bot = new TelegramBot(token, { polling: true });
+// Initialize bot with webhook mode
+const bot = new TelegramBot(token, { webHook: true });
 
-const bot = new TelegramBot(token, { polling: true });
+// Express app
+const app = express();
+app.use(bodyParser.json());
 
+// Set webhook URL (replace `your-app` with your Fly.io app name)
+const WEBHOOK_URL = `https://your-app.fly.dev/webhook/${token}`;
+bot.setWebHook(WEBHOOK_URL);
 
-// In-memory session store (chatId -> userEmail, plan, etc.)
+// Route to receive Telegram updates
+app.post(`/webhook/${token}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// Root route (just to check server is running)
+app.get("/", (req, res) => {
+  res.send("Telegram bot is running ✅");
+});
+
+// In-memory session store
 const sessions = {};
 
-// Investment Tiers (with limits enforced in the bot)
+// Investment Tiers
 const investmentTiers = [
   { name: "Plan 1", min: 2500, max: 12900, description: "Invest between $2,500 and $12,900. Duration: 9 days." },
   { name: "Plan 2", min: 4000, max: 20400, description: "Invest between $4,000 and $20,400. Duration: 9 days." },
@@ -28,10 +43,11 @@ const investmentTiers = [
   { name: "Plan 4", min: 12000, max: 61000, description: "Invest between $12,000 and $61,000. Duration: 9 days." },
 ];
 
-// /start command
+//
+// 🔹 START COMMAND
+//
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-
   bot.sendMessage(chatId, "📊 Welcome to FLT Investments!\nChoose an option:", {
     reply_markup: {
       keyboard: [
@@ -43,13 +59,15 @@ bot.onText(/\/start/, (msg) => {
   });
 });
 
-// Handle messages
+//
+// 🔹 MESSAGE HANDLER
+//
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
 
   //
-  // 🔹 SIGNUP FLOW WITH OTP + AUTO-LOGIN
+  // SIGNUP FLOW
   //
   if (text === "📝 Signup") {
     sessions[chatId] = { step: "signup_fullname" };
@@ -81,9 +99,7 @@ bot.on("message", async (msg) => {
         referrer: null
       });
 
-      bot.sendMessage(chatId,
-        "✅ Signup successful!\n\n📩 Check your email for the 6-digit OTP code and type it here to verify your account."
-      );
+      bot.sendMessage(chatId, "✅ Signup successful!\n\n📩 Check your email for the 6-digit OTP code and type it here to verify your account.");
       sessions[chatId].step = "verify_otp";
     } catch (error) {
       bot.sendMessage(chatId, "❌ Signup failed: " + (error.response?.data?.message || "Server error"));
@@ -102,7 +118,6 @@ bot.on("message", async (msg) => {
         return bot.sendMessage(chatId, "❌ Invalid OTP. Try again:");
       }
 
-      // ✅ OTP Verified → Auto Login
       const loginRes = await axios.post(`${API_BASE}/login`, { email, password });
 
       if (loginRes.data.success) {
@@ -134,52 +149,40 @@ bot.on("message", async (msg) => {
   }
 
   //
-// 🔹 LOGIN (manual)
-else if (text === "🔐 Login") {
-  sessions[chatId] = { awaitingLogin: true };
-  bot.sendMessage(
-    chatId,
-    "Enter your login details:\n`Email | Password`",
-    { parse_mode: "Markdown" }
-  );
-}
-else if (sessions[chatId]?.awaitingLogin && text.includes("|")) {
-  const [email, password] = text.split("|").map(s => s.trim());
-  try {
-    const res = await axios.post(`${API_BASE}/login`, { email, password });
-    if (res.data.success) {
-      sessions[chatId] = { 
-        email, 
-        token: res.data.token, 
-        loggedIn: true 
-      };
-
-      bot.sendMessage(chatId, "✅ " + res.data.message, {
-        reply_markup: {
-          keyboard: [
-            ["💰 View Plans", "📈 My Balance"],
-            ["➕ Invest", "💸 Withdraw"],
-            ["🚪 Logout"]
-          ],
-          resize_keyboard: true,
-          one_time_keyboard: false
-        }
-      });
-
-    } else {
-      bot.sendMessage(chatId, "❌ " + res.data.message);
-    }
-  } catch (error) {
-    bot.sendMessage(
-      chatId,
-      "❌ Login failed: " + (error.response?.data?.message || "Server error")
-    );
+  // LOGIN
+  //
+  else if (text === "🔐 Login") {
+    sessions[chatId] = { awaitingLogin: true };
+    bot.sendMessage(chatId, "Enter your login details:\n`Email | Password`", { parse_mode: "Markdown" });
   }
-}
+  else if (sessions[chatId]?.awaitingLogin && text.includes("|")) {
+    const [email, password] = text.split("|").map(s => s.trim());
+    try {
+      const res = await axios.post(`${API_BASE}/login`, { email, password });
+      if (res.data.success) {
+        sessions[chatId] = { email, token: res.data.token, loggedIn: true };
 
+        bot.sendMessage(chatId, "✅ " + res.data.message, {
+          reply_markup: {
+            keyboard: [
+              ["💰 View Plans", "📈 My Balance"],
+              ["➕ Invest", "💸 Withdraw"],
+              ["🚪 Logout"]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          }
+        });
+      } else {
+        bot.sendMessage(chatId, "❌ " + res.data.message);
+      }
+    } catch (error) {
+      bot.sendMessage(chatId, "❌ Login failed: " + (error.response?.data?.message || "Server error"));
+    }
+  }
 
   //
-  // 🔹 BALANCE
+  // BALANCE
   //
   else if (text === "📈 My Balance") {
     const session = sessions[chatId];
@@ -196,21 +199,19 @@ else if (sessions[chatId]?.awaitingLogin && text.includes("|")) {
   }
 
   //
-  // 🔹 VIEW PLANS
+  // VIEW PLANS
   //
-  // VIEW PLANS (Tiers) and also handle INVEST button
-else if (text === "💰 View Plans" || text === "➕ Invest") {
-  let message = "📊 Investment Plans (All expire in 9 days):\n\n";
-  investmentTiers.forEach((tier, i) => {
-    message += `${i + 1}. ${tier.name}\n   Min: $${tier.min}\n   Max: $${tier.max}\n\n`;
-  });
+  else if (text === "💰 View Plans" || text === "➕ Invest") {
+    let message = "📊 Investment Plans (All expire in 9 days):\n\n";
+    investmentTiers.forEach((tier, i) => {
+      message += `${i + 1}. ${tier.name}\n   Min: $${tier.min}\n   Max: $${tier.max}\n\n`;
+    });
 
-  bot.sendMessage(chatId, message + "Select a plan by typing its number (e.g. 1, 2, 3...)");
-}
-
+    bot.sendMessage(chatId, message + "Select a plan by typing its number (e.g. 1, 2, 3...)");
+  }
 
   //
-  // 🔹 HANDLE PLAN SELECTION
+  // PLAN SELECTION
   //
   else if (/^[1-4]$/.test(text)) {
     const tier = investmentTiers[parseInt(text) - 1];
@@ -218,15 +219,14 @@ else if (text === "💰 View Plans" || text === "➕ Invest") {
 
     sessions[chatId] = { ...sessions[chatId], selectedTier: tier };
 
-    bot.sendMessage(
-      chatId,
+    bot.sendMessage(chatId,
       `📌 *${tier.name}*\n\n${tier.description}\n\n💵 Please enter the *amount* you want to invest in this plan.`,
       { parse_mode: "Markdown" }
     );
   }
 
   //
-  // 🔹 HANDLE DEPOSIT AMOUNT
+  // DEPOSIT AMOUNT
   //
   else if (sessions[chatId]?.selectedTier && !isNaN(text)) {
     const tier = sessions[chatId].selectedTier;
@@ -238,9 +238,9 @@ else if (text === "💰 View Plans" || text === "➕ Invest") {
 
     try {
       const res = await axios.post(`${API_BASE}/deposit`, {
-        email: sessions[chatId].email,   // must be logged in
+        email: sessions[chatId].email,
         depositAmount: amount,
-        planName: TELEGRAM_PLAN_NAME,   // always the same in DB
+        planName: TELEGRAM_PLAN_NAME,
         planPrincipleReturn: true,
         planCreditAmount: amount,
         planDepositFee: 0,
@@ -248,13 +248,11 @@ else if (text === "💰 View Plans" || text === "➕ Invest") {
         depositMethod: "crypto"
       });
 
-      bot.sendMessage(
-        chatId,
+      bot.sendMessage(chatId,
         `✅ ${res.data.message}\n\n📌 Send your payment to:\nBTC: \`1ABCDxyzbtcwallet\`\nUSDT (TRC20): \`TX123usdtwallet\`\n\nAfter payment, send screenshot to @FLTSupport for verification.`,
         { parse_mode: "Markdown" }
       );
 
-      // Clear selected plan after deposit
       delete sessions[chatId].selectedTier;
     } catch (error) {
       bot.sendMessage(chatId, "❌ Deposit failed: " + (error.response?.data?.message || "Server error"));
@@ -262,7 +260,7 @@ else if (text === "💰 View Plans" || text === "➕ Invest") {
   }
 
   //
-  // 🔹 LOGOUT
+  // LOGOUT
   //
   else if (text === "🚪 Logout") {
     if (sessions[chatId]?.email) {
@@ -274,9 +272,17 @@ else if (text === "💰 View Plans" || text === "➕ Invest") {
   }
 
   //
-  // 🔹 UNKNOWN COMMANDS
+  // UNKNOWN COMMANDS
   //
   else if (!["/start", "🔐 Login", "📝 Signup", "💰 View Plans", "📈 My Balance", "➕ Invest", "💸 Withdraw", "🚪 Logout"].includes(text)) {
     bot.sendMessage(chatId, "🤖 I don’t understand that. Please choose an option from the menu.");
   }
+});
+
+//
+// 🔹 START EXPRESS SERVER
+//
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

@@ -18,7 +18,7 @@ const app = express();
 app.use(bodyParser.json());
 
 // Set webhook URL (replace `your-app` with your Fly.io app name)
-const WEBHOOK_URL = `https://your-app.fly.dev/webhook/${token}`;
+const WEBHOOK_URL = `https://fidelitybots.fly.dev/webhook/${token}`;
 bot.setWebHook(WEBHOOK_URL);
 
 // Route to receive Telegram updates
@@ -283,6 +283,7 @@ bot.on("message", async (msg) => {
 // 🔹 START EXPRESS SERVER
 //
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
+

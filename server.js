@@ -250,13 +250,13 @@ bot.on("message", async (msg) => {
 
       bot.sendMessage(
   chatId,
-  `✅ ${res.data.message}\n\n📌 Send your payment to:\n` +
+  `✅ Deposit intent created \n\n📌 Send your payment to:\n` +
   `BTC: \`bc1qpwjgneqczaspsqmpfyr2d48wmmnvr6qn3fmm56\`\n` +
   `ETH: \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
   `USDT (TRC20): \`TGQginp7dQg3DsHCdQJjo7xeqzbsZ5uK5D\`\n` +
   `USDT (BEP20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
   `USDT (ERC20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n\n` +
-  `After payment, send screenshot to @FLTSupport for verification.`,
+  `After payment, send screenshot to @Nicholas_Mitchell for verification.`,
   { parse_mode: "Markdown" }
 );
 
@@ -280,11 +280,11 @@ else if (text === "💸 Withdraw") {
   }
 
   // Just show support instructions
-  bot.sendMessage(
-    chatId,
-    `💸 To withdraw your funds, please contact our support team for clearance and a withdrawal code:\n\n👉 @FLTSupport`,
-    { parse_mode: "Markdown" }
-  );
+  bot.sendMessage(chatId,
+  "🪙 To withdraw your funds, please contact our support team for clearance and a withdrawal code:\n\n👉 [@Nicholas_Mitchell](https://t.me/Nicholas_Mitchell)",
+  { parse_mode: "Markdown" }
+);
+
 }
 
 

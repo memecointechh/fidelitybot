@@ -134,7 +134,7 @@ bot.on("message", async (msg) => {
               keyboard: [
                 ["💰 View Plans", "📈 My Balance"],
                 ["➕ Invest", "💸 Withdraw"],
-                ["🚪 Logout"]
+                ["📊 My Investments", "🚪 Logout"]
               ],
               resize_keyboard: true
             }
@@ -167,7 +167,7 @@ bot.on("message", async (msg) => {
             keyboard: [
               ["💰 View Plans", "📈 My Balance"],
               ["➕ Invest", "💸 Withdraw"],
-              ["🚪 Logout"]
+              ["📊 My Investments", "🚪 Logout"]
             ],
             resize_keyboard: true,
             one_time_keyboard: false
@@ -288,37 +288,94 @@ else if (text === "💸 Withdraw") {
 }
 
 
+
+// VIEW ACTIVE INVESTMENTS
+//
+else if (text === "📊 My Investments") {
+  const email = sessions[chatId]?.email;
+
+  if (!email) {
+    return bot.sendMessage(chatId, "⚠️ Please log in first to view your active investments.");
+  }
+
+  try {
+    // Call the /api/assets endpoint
+    const res = await axios.post(`${API_BASE}/api/assets`, { email });
+    const deposits = res.data.deposits || [];
+
+    if (deposits.length === 0) {
+      return bot.sendMessage(chatId, "📭 You currently have no active investments.");
+    }
+
+    let message = "📊 *Your Active Investments:*\n\n";
+    deposits.forEach((dep, i) => {
+      const expectedReturn = parseFloat(dep.amount) + parseFloat(dep.interest || 0);
+
+      // Calculate days remaining
+      const endDate = new Date(dep.investment_end_date);
+      const now = new Date();
+      const diffTime = endDate - now;
+      const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Format message
+      message += `#${i + 1}\n`;
+      message += `📈 Plan: *${dep.plan_name}*\n`;
+      message += `💰 Invested: $${dep.amount}\n`;
+      message += `💵 Expected Return: $${expectedReturn}\n`;
+      message += `🗓 Ends On: ${dep.investment_end_date}\n`;
+
+      if (daysLeft > 0) {
+        message += `⏳ *${daysLeft} day${daysLeft > 1 ? "s" : ""} remaining*\n\n`;
+      } else {
+        message += `✅ *Completed*\n\n`;
+      }
+    });
+
+    bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+
+  } catch (error) {
+    console.error("Error fetching investments:", error);
+    bot.sendMessage(chatId, "❌ Could not fetch your active investments. Please try again later.");
+  }
+}
+
+
+
   //
 // LOGOUT
 //
 else if (text === "🚪 Logout") {
   if (sessions[chatId]?.email) {
     delete sessions[chatId];
-    bot.sendMessage(chatId, "✅ You have been logged out successfully.", {
+
+    bot.sendMessage(chatId, "✅ You have been logged out successfully.\n\nPlease log in or sign up to continue:", {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔐 Sign In", callback_data: "signin" }],
-          [{ text: "📝 Sign Up", callback_data: "signup" }]
-        ]
-      }
+        keyboard: [
+          ["🔐 Login", "📝 Signup"]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+      },
     });
   } else {
-    bot.sendMessage(chatId, "ℹ️ You are not logged in.", {
+    bot.sendMessage(chatId, "ℹ️ You are not logged in.\n\nPlease log in or sign up to continue:", {
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔐 Sign In", callback_data: "signin" }],
-          [{ text: "📝 Sign Up", callback_data: "signup" }]
-        ]
-      }
+        keyboard: [
+          ["🔐 Login", "📝 Signup"]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+      },
     });
   }
 }
 
 
+
   //
   // UNKNOWN COMMANDS
   //
-  else if (!["/start", "🔐 Login", "📝 Signup", "💰 View Plans", "📈 My Balance", "➕ Invest", "💸 Withdraw", "🚪 Logout"].includes(text)) {
+  else if (!["/start", "🔐 Login", "📝 Signup", "💰 View Plans", "📈 My Balance", "➕ Invest", "💸 Withdraw", "📊 My Investments", "🚪 Logout"].includes(text)) {
     bot.sendMessage(chatId, "🤖 I don’t understand that. Please choose an option from the menu.");
   }
 });

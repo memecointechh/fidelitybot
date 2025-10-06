@@ -199,73 +199,76 @@ bot.on("message", async (msg) => {
   }
 
   //
-  // VIEW PLANS
-  //
-  else if (text === "💰 View Plans" || text === "➕ Invest") {
-    let message = "📊 Investment Plans (All expire in 9 days):\n\n";
-    investmentTiers.forEach((tier, i) => {
-      message += `${i + 1}. ${tier.name}\n   Min: $${tier.min}\n   Max: $${tier.max}\n\n`;
+ // VIEW PLANS
+//
+else if (text === "💰 View Plans" || text === "➕ Invest") {
+  let message = "📊 Investment Plans (All expire in 9 days):\n\n";
+  investmentTiers.forEach((tier, i) => {
+    message += `${i + 1}. ${tier.name}\n   Min: $${tier.min}\n   Max: $${tier.max}\n\n`;
+  });
+
+  bot.sendMessage(chatId, message + "Select a plan by typing its number (e.g. 1, 2, 3...)");
+}
+
+//
+// PLAN SELECTION
+//
+else if (/^[1-4]$/.test(text)) {
+  const tier = investmentTiers[parseInt(text) - 1];
+  if (!tier) return;
+
+  sessions[chatId] = { ...sessions[chatId], selectedTier: tier };
+
+  bot.sendMessage(chatId,
+    `📌 *${tier.name}*\n\n${tier.description}\n\n💵 Please enter the *amount* you want to invest in this plan.`,
+    { parse_mode: "Markdown" }
+  );
+}
+
+//
+// DEPOSIT AMOUNT
+//
+else if (sessions[chatId]?.selectedTier && !isNaN(text)) {
+  const tier = sessions[chatId].selectedTier;
+  const amount = parseFloat(text);
+
+  if (amount < tier.min || amount > tier.max) {
+    return bot.sendMessage(chatId, `❌ Invalid amount. Please enter between $${tier.min} and $${tier.max}.`);
+  }
+
+  try {
+    const res = await axios.post(`${API_BASE}/deposit`, {
+      email: sessions[chatId].email,
+      depositAmount: amount,
+      planName: TELEGRAM_PLAN_NAME,
+      planPrincipleReturn: true,
+      planCreditAmount: amount,
+      planDepositFee: 0,
+      planDebitAmount: amount,
+      depositMethod: "crypto"
     });
 
-    bot.sendMessage(chatId, message + "Select a plan by typing its number (e.g. 1, 2, 3...)");
-  }
-
-  //
-  // PLAN SELECTION
-  //
-  else if (/^[1-4]$/.test(text)) {
-    const tier = investmentTiers[parseInt(text) - 1];
-    if (!tier) return;
-
-    sessions[chatId] = { ...sessions[chatId], selectedTier: tier };
-
-    bot.sendMessage(chatId,
-      `📌 *${tier.name}*\n\n${tier.description}\n\n💵 Please enter the *amount* you want to invest in this plan.`,
+    // ✅ Replace backend message with our own clearer text
+    bot.sendMessage(
+      chatId,
+      `✅ *Deposit intent created successfully!*\n\n` +
+      `📌 Please send your payment to the address below:\n\n` +
+      `💰 *Payment Wallets:*\n` +
+      `BTC: \`bc1qpwjgneqczaspsqmpfyr2d48wmmnvr6qn3fmm56\`\n` +
+      `ETH: \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
+      `USDT (TRC20): \`TGQginp7dQg3DsHCdQJjo7xeqzbsZ5uK5D\`\n` +
+      `USDT (BEP20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
+      `USDT (ERC20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n\n` +
+      `📩 After payment, send your screenshot to [@Nicholas_Mitchell](https://t.me/Nicholas_Mitchell) for verification.`,
       { parse_mode: "Markdown" }
     );
+
+    delete sessions[chatId].selectedTier;
+
+  } catch (error) {
+    bot.sendMessage(chatId, "❌ Deposit failed: " + (error.response?.data?.message || "Server error"));
   }
-
-  //
-  // DEPOSIT AMOUNT
-  //
-  else if (sessions[chatId]?.selectedTier && !isNaN(text)) {
-    const tier = sessions[chatId].selectedTier;
-    const amount = parseFloat(text);
-
-    if (amount < tier.min || amount > tier.max) {
-      return bot.sendMessage(chatId, `❌ Invalid amount. Please enter between $${tier.min} and $${tier.max}.`);
-    }
-
-    try {
-      const res = await axios.post(`${API_BASE}/deposit`, {
-        email: sessions[chatId].email,
-        depositAmount: amount,
-        planName: TELEGRAM_PLAN_NAME,
-        planPrincipleReturn: true,
-        planCreditAmount: amount,
-        planDepositFee: 0,
-        planDebitAmount: amount,
-        depositMethod: "crypto"
-      });
-
-      bot.sendMessage(
-  chatId,
-  `✅ Deposit intent created \n\n📌 Send your payment to:\n` +
-  `BTC: \`bc1qpwjgneqczaspsqmpfyr2d48wmmnvr6qn3fmm56\`\n` +
-  `ETH: \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
-  `USDT (TRC20): \`TGQginp7dQg3DsHCdQJjo7xeqzbsZ5uK5D\`\n` +
-  `USDT (BEP20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n` +
-  `USDT (ERC20): \`0x6c1539A2253777d9E5dBb3EEb4Eeec4F730fFAAd\`\n\n` +
-  `After payment, send screenshot to @Nicholas_Mitchell for verification.`,
-  { parse_mode: "Markdown" }
-);
-
-
-      delete sessions[chatId].selectedTier;
-    } catch (error) {
-      bot.sendMessage(chatId, "❌ Deposit failed: " + (error.response?.data?.message || "Server error"));
-    }
-  }
+}
 
 
   //

@@ -300,7 +300,7 @@ else if (text === "📊 My Investments") {
 
   try {
     // Call the /api/assets endpoint
-    const res = await axios.post(`${API_BASE}/api/assets`, { email });
+    const res = await axios.post(`${API_BASE_URL}/assets`, { email });
     const deposits = res.data.deposits || [];
 
     if (deposits.length === 0) {

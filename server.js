@@ -192,7 +192,7 @@ bot.on("message", async (msg) => {
     }
     try {
       const res = await axios.get(`${API_BASE}/getBalance?email=${session.email}`);
-      bot.sendMessage(chatId, `💰 Your balance is: ₦${res.data.balance || 0}`);
+      bot.sendMessage(chatId, `💰 Your balance is: $${res.data.balance || 0}`);
     } catch (error) {
       bot.sendMessage(chatId, "❌ Failed to fetch balance.");
     }
